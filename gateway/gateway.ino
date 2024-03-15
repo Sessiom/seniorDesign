@@ -22,6 +22,8 @@
 #define CARCOUNT_CHARACTERISTIC_UUID "c28e246d-5632-44d7-8fdb-124f4243eb10"
 #define SIGN1COUNT_CHARACTERISTIC_UUID "65037f44-f9f5-48a4-8205-e9d3dc574316"
 #define SIGN2COUNT_CHARACTERISTIC_UUID "55a12381-bb3c-4731-9cde-99fcbc13fca2"
+#define WAITING1_CHARACTERISTIC_UUID "d9001af2-630c-4a44-ad33-2520d5fc93ff"
+#define WAITING2_CHARACTERISTIC_UUID "0d044a6c-fdf5-485f-b0f0-55c8d9f3854a"
 
 uint8_t broadcastAddress1[] = {0xA0, 0xA3, 0xB3, 0xED, 0xA5, 0x60};  // Node 1
 uint8_t broadcastAddress2[] = {0xD4, 0x8A, 0xFC, 0x9E, 0x1C, 0xB0};  // Node 2
@@ -33,6 +35,9 @@ BLECharacteristic* pCarCountCharacteristic = NULL;
 BLECharacteristic* pRedRedCharacteristic = NULL;
 BLECharacteristic* pSign1CountCharacteristic = NULL;
 BLECharacteristic* pSign2CountCharacteristic = NULL;
+BLECharacteristic* pWaiting1Characteristic = NULL;
+BLECharacteristic* pWaiting2Characteristic = NULL;
+
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
 
@@ -216,6 +221,20 @@ void setup() {
                       BLECharacteristic::PROPERTY_NOTIFY |
                       BLECharacteristic::PROPERTY_INDICATE
                     );
+  pWaiting1Characteristic = pService->createCharacteristic(
+                      WAITING1_CHARACTERISTIC_UUID,
+                      BLECharacteristic::PROPERTY_READ   |
+                      BLECharacteristic::PROPERTY_WRITE  |
+                      BLECharacteristic::PROPERTY_NOTIFY |
+                      BLECharacteristic::PROPERTY_INDICATE
+                    );
+  pWaiting2Characteristic = pService->createCharacteristic(
+                      WAITING2_CHARACTERISTIC_UUID,
+                      BLECharacteristic::PROPERTY_READ   |
+                      BLECharacteristic::PROPERTY_WRITE  |
+                      BLECharacteristic::PROPERTY_NOTIFY |
+                      BLECharacteristic::PROPERTY_INDICATE
+                    );
 
   // Create the REDRED button Characteristic
   pRedRedCharacteristic = pService->createCharacteristic(
@@ -234,6 +253,8 @@ void setup() {
   pCarCountCharacteristic->addDescriptor(new BLE2902());
   pSign1CountCharacteristic->addDescriptor(new BLE2902());
   pSign2CountCharacteristic->addDescriptor(new BLE2902());
+  pWaiting1Characteristic->addDescriptor(new BLE2902());
+  pWaiting2Characteristic->addDescriptor(new BLE2902());
   pRedRedCharacteristic->addDescriptor(new BLE2902());
 
   // Start the service
@@ -268,6 +289,8 @@ void loop() {
     bool board2IsGoToRed = boardsStruct[1].isgotored;
 
     int carsInLane = boardsStruct[1].carsinlane;
+    bool waiting1 = board1IsCarWaiting || board1IsCarApproaching;
+    bool waiting2 = board2IsCarWaiting || board2IsCarApproaching;
 
      // Set values to send
      RemoteReadings.redred = isRedRed;
@@ -284,6 +307,8 @@ void loop() {
         //Serial.println("Error sending the data");
       }
     }
+
+
 
     
 
@@ -313,6 +338,16 @@ void loop() {
         pSign2CountCharacteristic->notify();
         Serial.print("New value notified: ");
         Serial.print(board2SignCount);
+
+        pWaiting1Characteristic->setValue(String(waiting1).c_str());
+        pWaiting1Characteristic->notify();
+        Serial.print("New value notified: ");
+        Serial.print(waiting1);
+
+        pWaiting2Characteristic->setValue(String(waiting2).c_str());
+        pWaiting2Characteristic->notify();
+        Serial.print("New value notified: ");
+        Serial.print(waiting2);
 
         delay(500); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
     }
