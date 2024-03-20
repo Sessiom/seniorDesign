@@ -6,9 +6,15 @@ import urllib.request
 import numpy as np
 import requests
 
-# Replace the URL with the IP camera's stream URL
-url = "$$$$$"
-stream_url = '$$$$$'
+# Replace with the IP address of your ESP32 device
+esp32_ip = '$$$$$'  
+
+# URL for the WebServer
+url = f"http://{esp32_ip}:81/"
+
+# URL for the AsyncWebServer
+stream_url = f"http://{esp32_ip}/cam-lo.jpg"
+
 cv2.namedWindow("live Cam Testing", cv2.WINDOW_AUTOSIZE)
 
 # Create a VideoCapture object
