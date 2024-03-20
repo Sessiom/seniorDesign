@@ -5,15 +5,16 @@ import math
 import urllib.request
 import numpy as np
 import requests
+from http.client import IncompleteRead
 
 # Replace with the IP address of your ESP32 device
-esp32_ip = '$$$$$'  
+esp32_ip = '172.20.10.2'  
 
 # URL for the WebServer
 url = f"http://{esp32_ip}:81/"
 
 # URL for the AsyncWebServer
-stream_url = f"http://{esp32_ip}/cam-lo.jpg"
+stream_url = f"http://{esp32_ip}:80/cam-lo.jpg"
 
 cv2.namedWindow("live Cam Testing", cv2.WINDOW_AUTOSIZE)
 
@@ -40,9 +41,16 @@ classNames = ["person", "bicycle", "car", "motorcycle", "airplane", "bus", "trai
 
 prev_message_str = None
 
+car_detected = False
+
 while True:
     img_resp = urllib.request.urlopen(stream_url)
-    imgnp=np.array(bytearray(img_resp.read()),dtype=np.uint8)
+
+    try:
+        imgnp = np.array(bytearray(img_resp.read()), dtype=np.uint8)
+    except IncompleteRead as e:
+        imgnp = np.array(bytearray(e.partial), dtype=np.uint8)
+
     img = cv2.imdecode(imgnp,-1)
 
     results = model(img, stream=True)
