@@ -6,8 +6,9 @@
 //Replace with credentials
 const char* WIFI_SSID = "$$$$$";
 const char* WIFI_PASS = "$$$$$";
- 
-AsyncWebServer server(80);
+
+WebServer server(80);
+AsyncWebServer asyncserver(81);
  
  
 static auto loRes = esp32cam::Resolution::find(320, 240);
@@ -88,7 +89,7 @@ void  setup(){
   //server.on("/cam-mid.jpg", handleJpgMid);
 
   // Route for handling the POST request
-  server.on("/", HTTP_POST, [](AsyncWebServerRequest *request){
+  asyncserver.on("/", HTTP_POST, [](AsyncWebServerRequest *request){
     String message;
     if (request->hasParam("value", true)) {
       message = request->getParam("value", true)->value();
@@ -107,6 +108,7 @@ void  setup(){
   });
  
   server.begin();
+  asyncserver.begin();
 }
  
 void loop()
