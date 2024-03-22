@@ -10,13 +10,10 @@
 #include <ESP32Servo.h>
 
 #define onBoard 2
-#define echoPin1 19
-#define trigPin1 21
 #define echoPin2 22
-#define trigPin2 23
-#define greenLED 18
-#define yellowLED 4
-#define redLED 15    
+#define trigPin2 23  
+#define RXp2 16
+#define TXp2 17
 
 // REPLACE WITH THE MAC Address of your receiver 
 uint8_t broadcastAddress1[] = {0xD4, 0x8A, 0xFC, 0x9E, 0x1C, 0xB0}; // esp2
@@ -33,10 +30,6 @@ bool prevIsSlow = false;
 bool isTimerGoing = false;
 bool isTimerYellowGoing = false;
 bool isTimerRedGoing = false;
-bool prevCarCheck1 = false;       //car approaching
-bool currentCarCheck1 = false;
-bool prevCarCheck2 = false;       //car waiting
-bool currentCarCheck2 = false;
 bool prevCarCheck3 = false;       //car entering
 bool currentCarCheck3 = false;
 bool prevCarCheck4 = false;       // car leaving
@@ -48,8 +41,8 @@ unsigned long timer = 0; // for when the lane is congested
 unsigned long timerYellow = 0; // for when the light just turned yellow
 unsigned long timerRed = 0;  // for when the light just turned red
 unsigned long timerBeforeYellow = 0; // for before the light can turn yellow
-const long interval1 = 250; // .25 sec for car count
-const long interval2 = 250; // .25 sec for car subtract
+const long interval1 = 125; // 1/8 per sec for car count
+const long interval2 = 125; // 1/8 per sec for car incoming
 const long interval3 = 50; // .05 sec for sending radio (50 for fastest) (1000 for testing)
 
 const long interval4 = 3000; // timer for when there is constant traffic flow on both sides
@@ -61,7 +54,7 @@ const long interval7 = 3000; // timer for before the light can turn yellow incas
 int carsEntering;
 int carsLeaving;
 int signCount;
-bool isSlow = true;
+bool isSlow = false;   // Change to false for testing (should be true by default)
 bool isCarWaiting = false;
 bool isCarApproaching = false;
 bool isGoToRed = false;
@@ -141,19 +134,15 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 void setup() {
   // Init Serial Monitor
   Serial.begin(115200);
+  Serial2.begin(115200, SERIAL_8N1, RXp2, TXp2);
 
   pinMode(onBoard, OUTPUT);
-  pinMode(redLED, OUTPUT);
-  pinMode(yellowLED, OUTPUT);
-  pinMode(greenLED, OUTPUT);
-  pinMode(trigPin1, OUTPUT);
-  pinMode(echoPin1, INPUT);
   pinMode(trigPin2, OUTPUT);
   pinMode(echoPin2, INPUT);
 
   /* servo */
   myServo.attach(Servo);
-  myServo.write(90);
+  myServo.write(0);
 
   // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
@@ -226,13 +215,11 @@ void loop() {
   if(!incomingIsRedRed){
     // If the sign is yellow/slow 
     if(isSlow){
-      digitalWrite(yellowLED, HIGH);
-      digitalWrite(redLED, LOW);
 
       //Outside sensor
       if (currentMillis - prevMillis1 >= interval1) {
         prevMillis1 = currentMillis;
-        UltrasonicRead1();     
+        carDetection1();     
       }
       //Inside sensor
       if (currentMillis - prevMillis2 >= interval2) {
@@ -244,13 +231,11 @@ void loop() {
 
     // If the sign is red/stop and the light did not just turn red
     else if ((currentMillis - timerRed >= interval6) && !isSlow && (!prevIsSlow || incomingIsSlow) ) { // added && (!prevIsSlow || incomingIsSlow)
-      digitalWrite(redLED, HIGH);
-      digitalWrite(yellowLED, LOW);
 
       //Outside sensor
       if (currentMillis - prevMillis1 >= interval1) {
         prevMillis1 = currentMillis;
-        UltrasonicRead2();     
+        carDetection2();     
       }
       //Inside sensor
       if (currentMillis - prevMillis2 >= interval2) {
@@ -267,8 +252,6 @@ void loop() {
     // If the light just turned red/stop continue to count cars entering the lane for 3 seconds
     // In case a car runs the red light.
     else if(!isSlow && prevIsSlow && !incomingIsSlow){  //was (!isSlow && isTimerRedGoing)
-      digitalWrite(redLED, HIGH);
-      digitalWrite(yellowLED, LOW);
 
       if (currentMillis - prevMillis2 >= interval2) {
         UltrasonicRead3();
@@ -307,8 +290,6 @@ void loop() {
   
   // If the light is yellow, turn to red and reset carsInLane
   if (incomingIsRedRed && !prevRedRed && isSlow) {
-      digitalWrite(redLED, HIGH);
-      digitalWrite(yellowLED, LOW);
       moveServoStop();
       prevRedRed = incomingIsRedRed;
       carsEntering = 0;
@@ -327,59 +308,33 @@ void loop() {
 
 
 /* When yellow "car is approaching" */  
-void UltrasonicRead1(){
-    long duration, distance;
-    digitalWrite(trigPin1, LOW);  
-    delayMicroseconds(2); 
-    digitalWrite(trigPin1, HIGH);
-    delayMicroseconds(10); 
-    digitalWrite(trigPin1, LOW);
-    duration = pulseIn(echoPin1, HIGH);
-    distance = (duration/2) / 29.1;
-    //Serial.println(distance);
-    if ((distance < 20) && (distance > 0)) { 
-      digitalWrite(greenLED, HIGH);
-      currentCarCheck1 = true;
-      if (currentCarCheck1 && !prevCarCheck1) {
-        isCarApproaching = true;
-        Serial.print("Car is approaching: ");
-        Serial.println(isCarApproaching);
-      }
-    } 
-    else {
-      digitalWrite(greenLED, LOW);
-      currentCarCheck1 = false;
+void carDetection1(){
+    String incomingMessage = Serial2.readString();
+    incomingMessage.trim();
+    Serial.print("Message Received: ");
+    Serial.println(incomingMessage);
+    if(incomingMessage == "True")
+    {
+      isCarApproaching = true;
+    }
+    else{
       isCarApproaching = false;
     }
-    prevCarCheck1 = currentCarCheck1;
 }
 
 /* When red say "car is waiting"*/
-void UltrasonicRead2(){
-    long duration, distance;
-    digitalWrite(trigPin1, LOW);  
-    delayMicroseconds(2); 
-    digitalWrite(trigPin1, HIGH);
-    delayMicroseconds(10); 
-    digitalWrite(trigPin1, LOW);
-    duration = pulseIn(echoPin1, HIGH);
-    distance = (duration/2) / 29.1;
-    //Serial.println(distance);
-    if ((distance < 20) && (distance > 0)) { 
-      digitalWrite(greenLED, HIGH);
-      currentCarCheck2 = true;
-      if (currentCarCheck2 && !prevCarCheck2) {
-        isCarWaiting = true;
-        Serial.print("Car is waiting: ");
-        Serial.println(isCarWaiting);
-      }
-    } 
-    else {
-      digitalWrite(greenLED, LOW);
-      currentCarCheck2 = false;
+void carDetection2(){
+    String incomingMessage = Serial2.readString();
+    incomingMessage.trim();
+    Serial.print("Message Received: ");
+    Serial.println(incomingMessage);
+    if(incomingMessage == "True")
+    {
+      isCarWaiting = true;
+    }
+    else{
       isCarWaiting = false;
     }
-    prevCarCheck2 = currentCarCheck2;
 }
 
 /* When yellow "car entered lane"*/
@@ -440,15 +395,15 @@ void UltrasonicRead4(){
 }
 
 void moveServoStop() {
-    myServo.write(180);
-    delay(900);
-    myServo.write(90);
+    myServo.write(0);
+    delay(500);
+    myServo.detach();
 }
 
 void moveServoSlow() {
     myServo.write(180);
-    delay(900);
-    myServo.write(90);
+    delay(500);
+    myServo.detach();
 }
 
 void updateSign(){
@@ -501,7 +456,6 @@ unsigned long currentMillis = millis();
     isTimerRedGoing = true;
 
     prevIsSlow = isSlow;
-    prevCarCheck2 = false; // this is needed to reset the latch
     isSlow = false;
     carsLeaving = 0;
     Serial.println("going to red");
