@@ -2,10 +2,14 @@
 #include <WiFi.h>
 #include <esp32cam.h>
 #include <ESPAsyncWebServer.h>
+#include <AsyncTCP.h>
+
+#define RXD2 3   //vor
+#define TXD2 1   //vot
 
 //Replace with credentials
-const char* WIFI_SSID = "$$$$$";
-const char* WIFI_PASS = "$$$$$";
+const char* WIFI_SSID = "Sessiom";
+const char* WIFI_PASS = "anzzdpsho7opk";
 
 WebServer server(80);
 AsyncWebServer asyncserver(81);
@@ -22,7 +26,7 @@ void serveJpg()
     server.send(503, "", "");
     return;
   }
-  Serial.printf("CAPTURE OK %dx%d %db\n", frame->getWidth(), frame->getHeight(),
+  //Serial.printf("CAPTURE OK %dx%d %db\n", frame->getWidth(), frame->getHeight(),
                 static_cast<int>(frame->size()));
  
   server.setContentLength(frame->size());
@@ -85,8 +89,8 @@ void  setup(){
   Serial.println("  /cam-mid.jpg");
  
   server.on("/cam-lo.jpg", handleJpgLo);
-  //server.on("/cam-hi.jpg", handleJpgHi);
-  //server.on("/cam-mid.jpg", handleJpgMid);
+  server.on("/cam-hi.jpg", handleJpgHi);
+  server.on("/cam-mid.jpg", handleJpgMid);
 
   // Route for handling the POST request
   asyncserver.on("/", HTTP_POST, [](AsyncWebServerRequest *request){
@@ -95,12 +99,6 @@ void  setup(){
       message = request->getParam("value", true)->value();
       Serial.println(message);
 
-      // If the incoming message is "true", turn the LED on
-      if (message == "True") {
-        Serial.println("CAR CAR!");
-      } else {
-        //Do nothing
-      }
     } else {
       message = "No message sent";
     }
