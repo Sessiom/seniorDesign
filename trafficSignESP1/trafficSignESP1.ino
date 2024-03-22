@@ -316,9 +316,12 @@ void carDetection1(){
     if(incomingMessage == "True")
     {
       isCarApproaching = true;
+      digitalWrite(2, HIGH);
     }
-    else{
+    else if (incomingMessage == "False")
+    {
       isCarApproaching = false;
+      digitalWrite(2, LOW);
     }
 }
 
@@ -331,9 +334,11 @@ void carDetection2(){
     if(incomingMessage == "True")
     {
       isCarWaiting = true;
+      digitalWrite(2, HIGH);
     }
     else{
       isCarWaiting = false;
+      digitalWrite(2, LOW);
     }
 }
 
